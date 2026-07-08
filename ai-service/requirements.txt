@@ -2,6 +2,6 @@ fastapi
 uvicorn
 pydantic
 python-dotenv
-google-genai
+groq
 pydub
 python-multipart

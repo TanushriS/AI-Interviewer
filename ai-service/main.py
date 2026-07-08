@@ -10,26 +10,25 @@ from pydantic import BaseModel
 from dotenv import load_dotenv
 from typing import Optional
 from pydub import AudioSegment
-from google import genai
-from google.genai import types
 
 load_dotenv()
 
 AI_SERVICE_PORT = int(os.getenv("AI_SERVICE_PORT", 8000))
 
-# Initialize the Gemini API client lazily
+# Initialize the Groq API client lazily
 _client = None
 
-def get_gemini_client():
+def get_groq_client():
     global _client
     if _client is None:
-        api_key = os.getenv("GEMINI_API_KEY")
+        api_key = os.getenv("GROQ_API_KEY")
         if not api_key:
-            raise ValueError("GEMINI_API_KEY environment variable is not set. Please configure it in your Render/Railway settings.")
-        _client = genai.Client(api_key=api_key)
+            raise ValueError("GROQ_API_KEY environment variable is not set. Please configure it in your Render/Railway settings.")
+        from groq import Groq
+        _client = Groq(api_key=api_key)
     return _client
 
-app = FastAPI(title="AI Interviewer Microservice (Gemini Powered)", version="2.0")
+app = FastAPI(title="AI Interviewer Microservice (Groq Powered)", version="2.0")
 
 origins = ["*"]
 app.add_middleware(
@@ -66,17 +65,7 @@ class EvaluationResponse(BaseModel):
 
 @app.get("/")
 async def root():
-    return {"message": "Hello from AI Interviewer Microservice (Gemini-Powered)!", "model": "gemini-flash-latest"}
-
-@app.get("/list-models")
-async def list_models():
-    try:
-        models = get_gemini_client().models.list()
-        return {"models": [m.name for m in models]}
-    except Exception as e:
-        import traceback
-        traceback.print_exc()
-        raise HTTPException(status_code=500, detail=str(e))
+    return {"message": "Hello from AI Interviewer Microservice (Groq-Powered)!", "model": "llama-3.3-70b-versatile"}
 
 @app.post("/generate-questions", response_model=QuestionResponse)
 async def generate_questions(request: QuestionResquest):
@@ -93,9 +82,9 @@ async def generate_questions(request: QuestionResquest):
             instruction = "All questions MUST be conceptual oral questions. Do NOT generate any coding or implementation challenges."
 
         system_prompt = (
-            "You are a professional technical interviewer. "
-            "Task: Generate interview questions. No conversational text or numbering. "
-            f"Crucial: {instruction} "
+            "You are a professional technical interviewer.\n"
+            "Task: Generate interview questions. No conversational text or numbering.\n"
+            f"Crucial: {instruction}\n"
             "Output exactly one question per line."
         )
 
@@ -103,16 +92,16 @@ async def generate_questions(request: QuestionResquest):
             f"Generate exactly {request.count} unique interview questions for a {request.level} level {request.role}."
         )
         
-        response = get_gemini_client().models.generate_content(
-            model="gemini-flash-latest",
-            contents=user_prompt,
-            config=types.GenerateContentConfig(
-                system_instruction=system_prompt,
-                temperature=0.6,
-            )
+        response = get_groq_client().chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt}
+            ],
+            temperature=0.6,
         )
 
-        raw_text = response.text.strip()
+        raw_text = response.choices[0].message.content.strip()
         # Clean up any potential <think> blocks or numbering/markdown formatting
         raw_text = re.sub(r'<think>.*?</think>', '', raw_text, flags=re.DOTALL).strip()
         
@@ -126,7 +115,7 @@ async def generate_questions(request: QuestionResquest):
             if clean_line:
                 questions.append(clean_line)
                 
-        return QuestionResponse(questions=questions[:request.count], model_used="gemini-flash-latest")
+        return QuestionResponse(questions=questions[:request.count], model_used="llama-3.3-70b-versatile")
 
     except Exception as e:
         import traceback
@@ -146,18 +135,10 @@ async def transcribe_audio(file: UploadFile = File(...)):
             
         try:
             with open(temp_audio_path, "rb") as f:
-                mp3_bytes = f.read()
-                
-            response = get_gemini_client().models.generate_content(
-                model="gemini-flash-latest",
-                contents=[
-                    "Transcribe the following audio clip exactly as spoken. Output ONLY the raw transcription text without any commentary, labels, or formatting.",
-                    types.Part.from_bytes(
-                        data=mp3_bytes,
-                        mime_type="audio/mp3"
-                    )
-                ]
-            )
+                response = get_groq_client().audio.transcriptions.create(
+                    file=(os.path.basename(temp_audio_path), f),
+                    model="whisper-large-v3"
+                )
             transcription = response.text.strip()
         finally:
             if os.path.exists(temp_audio_path):
@@ -192,7 +173,9 @@ async def evaluate(request: EvaluationRequest):
             "Rule 1: If the answer is completely missing, gibberish (e.g. 'blah blah', 'testing', 'hello'), or irrelevant to the question as per the critical rules, you MUST return technicalScore: 0 and confidenceScore: 0.\n"
             "Rule 2: Otherwise, rate it based on accuracy and completeness (e.g. 70-100 for good answers, lower for partial answers).\n"
             f"Context: {assessment_instruction}\n\n"
-            "You MUST output your final scores and feedback matching the requested schema."
+            "You MUST respond with a JSON object containing exactly these fields:\n"
+            "technicalScore (integer), confidenceScore (integer), aiFeedback (string), and idealAnswer (string).\n"
+            "Do not add any markdown formatting, wrappers, or other text outside the JSON."
         )
         
         user_prompt = (
@@ -203,18 +186,17 @@ async def evaluate(request: EvaluationRequest):
             f"Code Answer: {request.user_code or 'No code provided'}\n"
         )
         
-        response = get_gemini_client().models.generate_content(
-            model="gemini-flash-latest",
-            contents=user_prompt,
-            config=types.GenerateContentConfig(
-                system_instruction=system_prompt,
-                temperature=0.1,
-                response_mime_type="application/json",
-                response_schema=EvaluationResponse
-            )
+        response = get_groq_client().chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt}
+            ],
+            temperature=0.1,
+            response_format={"type": "json_object"}
         )
         
-        evaluation_data = json.loads(response.text)
+        evaluation_data = json.loads(response.choices[0].message.content)
         return EvaluationResponse(**evaluation_data)
 
     except Exception as e:
