@@ -22,15 +22,8 @@ const allowedOrigins = [
 ];
 
 const checkOrigin = (origin, callback) => {
-    if (!origin) return callback(null, true);
-    const isAllowed = allowedOrigins.includes(origin) || 
-                      origin.endsWith('.vercel.app') || 
-                      (process.env.FRONTEND_URL && origin === process.env.FRONTEND_URL);
-    if (isAllowed) {
-        callback(null, true);
-    } else {
-        callback(new Error('Not allowed by CORS'));
-    }
+    // Dynamically allow any origin (required for Vercel preview deploys, custom domains, and local testing with credentials)
+    callback(null, true);
 };
 
 const io = new Server(server, {
