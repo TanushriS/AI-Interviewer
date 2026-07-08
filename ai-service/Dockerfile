@@ -21,7 +21,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application files
 COPY main.py .
-COPY .env .
 
 # Copy and configure the start script
 COPY start.sh .
