@@ -3,6 +3,7 @@ import os
 import io
 import json
 import tempfile
+import re
 from fastapi import FastAPI,HTTPException,UploadFile,File
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -101,6 +102,7 @@ async def generate_questions(request:QuestionResquest):
         )
 
         raw_text=response['response'].strip()
+        raw_text=re.sub(r'<think>.*?</think>', '', raw_text, flags=re.DOTALL).strip()
         questions=[q.strip() for q in raw_text.split('\n') if q.strip()]
         return QuestionResponse(questions=questions[:request.count],model_used=OLLAMA_MODEL_NAME)
 
@@ -176,10 +178,10 @@ async def evaluate(request:EvaluationRequest):
             options={"temperature":0.1}
         )
         response_text=response['response'].strip()
+        response_text=re.sub(r'<think>.*?</think>', '', response_text, flags=re.DOTALL).strip()
         print("Raw Response from Ollama:", response_text)
         
         evaluation_data = None
-        import re
         
         # 1. Try to find a ```json ... ``` block
         json_block_match = re.search(r'```json\s*(\{.*?\})\s*```', response_text, re.DOTALL)
