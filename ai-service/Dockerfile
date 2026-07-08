@@ -1,15 +1,9 @@
 FROM python:3.10-slim
 
-# Install system dependencies
+# Install system dependencies (only ffmpeg is required for audio processing)
 RUN apt-get update && apt-get install -y \
-    curl \
     ffmpeg \
-    git \
-    zstd \
     && rm -rf /var/lib/apt/lists/*
-
-# Install Ollama
-RUN curl -fsSL https://ollama.com/install.sh | sh
 
 # Set work directory
 WORKDIR /app
