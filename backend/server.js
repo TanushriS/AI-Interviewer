@@ -49,7 +49,10 @@ app.get("/", (req, res) => {
 });
 
 app.use("/api/users", userRoutes);
+app.use("/users", userRoutes); // Fallback for frontend env variables missing '/api'
+
 app.use("/api/sessions", sessionRoutes);
+app.use("/sessions", sessionRoutes); // Fallback for frontend env variables missing '/api'
 
 io.on("connection", (socket) => {
     console.log(`A user Connected ${socket.id}`);
