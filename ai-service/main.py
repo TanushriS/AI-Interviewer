@@ -119,6 +119,8 @@ async def generate_questions(request: QuestionResquest):
         return QuestionResponse(questions=questions[:request.count], model_used="gemini-1.5-flash")
 
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/transcribe")
@@ -154,6 +156,8 @@ async def transcribe_audio(file: UploadFile = File(...)):
         return {"transcription": transcription}
 
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/evaluate", response_model=EvaluationResponse)
@@ -204,7 +208,8 @@ async def evaluate(request: EvaluationRequest):
         return EvaluationResponse(**evaluation_data)
 
     except Exception as e:
-        print(f"Failed to generate evaluation: {e}")
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":
