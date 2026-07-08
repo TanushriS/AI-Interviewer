@@ -66,7 +66,7 @@ class EvaluationResponse(BaseModel):
 
 @app.get("/")
 async def root():
-    return {"message": "Hello from AI Interviewer Microservice (Gemini-Powered)!", "model": "gemini-2.0-flash"}
+    return {"message": "Hello from AI Interviewer Microservice (Gemini-Powered)!", "model": "gemini-1.5-flash"}
 
 @app.post("/generate-questions", response_model=QuestionResponse)
 async def generate_questions(request: QuestionResquest):
@@ -94,7 +94,7 @@ async def generate_questions(request: QuestionResquest):
         )
         
         response = get_gemini_client().models.generate_content(
-            model="gemini-2.0-flash",
+            model="gemini-1.5-flash",
             contents=user_prompt,
             config=types.GenerateContentConfig(
                 system_instruction=system_prompt,
@@ -116,7 +116,7 @@ async def generate_questions(request: QuestionResquest):
             if clean_line:
                 questions.append(clean_line)
                 
-        return QuestionResponse(questions=questions[:request.count], model_used="gemini-2.0-flash")
+        return QuestionResponse(questions=questions[:request.count], model_used="gemini-1.5-flash")
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -137,7 +137,7 @@ async def transcribe_audio(file: UploadFile = File(...)):
                 mp3_bytes = f.read()
                 
             response = get_gemini_client().models.generate_content(
-                model="gemini-2.0-flash",
+                model="gemini-1.5-flash",
                 contents=[
                     "Transcribe the following audio clip exactly as spoken. Output ONLY the raw transcription text without any commentary, labels, or formatting.",
                     types.Part.from_bytes(
@@ -190,7 +190,7 @@ async def evaluate(request: EvaluationRequest):
         )
         
         response = get_gemini_client().models.generate_content(
-            model="gemini-2.0-flash",
+            model="gemini-1.5-flash",
             contents=user_prompt,
             config=types.GenerateContentConfig(
                 system_instruction=system_prompt,
