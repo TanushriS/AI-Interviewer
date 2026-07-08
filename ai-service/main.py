@@ -17,12 +17,17 @@ load_dotenv()
 
 AI_SERVICE_PORT = int(os.getenv("AI_SERVICE_PORT", 8000))
 
-# Initialize the Gemini API client
-api_key = os.getenv("GEMINI_API_KEY")
-if not api_key:
-    print("WARNING: GEMINI_API_KEY environment variable is not set. The Gemini client will attempt to use default credentials.")
+# Initialize the Gemini API client lazily
+_client = None
 
-client = genai.Client(api_key=api_key)
+def get_gemini_client():
+    global _client
+    if _client is None:
+        api_key = os.getenv("GEMINI_API_KEY")
+        if not api_key:
+            raise ValueError("GEMINI_API_KEY environment variable is not set. Please configure it in your Render/Railway settings.")
+        _client = genai.Client(api_key=api_key)
+    return _client
 
 app = FastAPI(title="AI Interviewer Microservice (Gemini Powered)", version="2.0")
 
@@ -88,7 +93,7 @@ async def generate_questions(request: QuestionResquest):
             f"Generate exactly {request.count} unique interview questions for a {request.level} level {request.role}."
         )
         
-        response = client.models.generate_content(
+        response = get_gemini_client().models.generate_content(
             model="gemini-2.0-flash",
             contents=user_prompt,
             config=types.GenerateContentConfig(
@@ -131,7 +136,7 @@ async def transcribe_audio(file: UploadFile = File(...)):
             with open(temp_audio_path, "rb") as f:
                 mp3_bytes = f.read()
                 
-            response = client.models.generate_content(
+            response = get_gemini_client().models.generate_content(
                 model="gemini-2.0-flash",
                 contents=[
                     "Transcribe the following audio clip exactly as spoken. Output ONLY the raw transcription text without any commentary, labels, or formatting.",
@@ -184,7 +189,7 @@ async def evaluate(request: EvaluationRequest):
             f"Code Answer: {request.user_code or 'No code provided'}\n"
         )
         
-        response = client.models.generate_content(
+        response = get_gemini_client().models.generate_content(
             model="gemini-2.0-flash",
             contents=user_prompt,
             config=types.GenerateContentConfig(
