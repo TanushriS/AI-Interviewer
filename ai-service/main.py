@@ -68,6 +68,16 @@ class EvaluationResponse(BaseModel):
 async def root():
     return {"message": "Hello from AI Interviewer Microservice (Gemini-Powered)!", "model": "gemini-1.5-flash"}
 
+@app.get("/list-models")
+async def list_models():
+    try:
+        models = get_gemini_client().models.list()
+        return {"models": [m.name for m in models]}
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.post("/generate-questions", response_model=QuestionResponse)
 async def generate_questions(request: QuestionResquest):
     try:
