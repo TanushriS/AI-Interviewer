@@ -8,9 +8,7 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Ollama
-RUN curl -L https://ollama.com/download/ollama-linux-amd64.tgz -o ollama.tgz \
-    && tar -C /usr -xzf ollama.tgz \
-    && rm ollama.tgz
+RUN curl -fsSL https://ollama.com/install.sh | sh
 
 # Set work directory
 WORKDIR /app
